@@ -14,7 +14,7 @@ def main():
     if st.button("Predict"):
         try:
             response = requests.post(
-                "http://127.0.0.1:5000/predict",  # Update to your backend URL
+                "https://lottery-backend-wbft.onrender.com/predict",  # Update to your backend URL
                 json={"initial_draw": draw, "date": date.strftime("%m-%d")}
             )
             if response.status_code == 200:
