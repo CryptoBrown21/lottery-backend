@@ -1,58 +1,83 @@
-from flask import Flask, request, jsonify
-import random
+import itertools
 
-app = Flask(__name__)  # Fixed syntax error here
+def generate_grid(previous_draw):
+    """
+    Generate a 4x4 grid from the previous draw and apply transformations.
+    """
+    grid = [[0] * 4 for _ in range(4)]
+    transformations = {
+        "plus_one": lambda x: (x + 1) % 10,
+        "minus_one": lambda x: (x - 1) % 10,
+        "mirror": lambda x: (x + 5) % 10,
+    }
+    
+    # Fill the first column with the previous draw digits
+    for i, digit in enumerate(previous_draw):
+        grid[i][0] = digit
+    
+    # Apply transformations
+    for i in range(4):
+        for j, (name, transform) in enumerate(transformations.items(), start=1):
+            grid[i][j] = transform(grid[i][0])
+    
+    return grid
 
-# Prediction Logic
-def predict_hit_enhanced(initial_draw, date, historical_data=None):
-    A, B, C, D = [int(d) for d in str(initial_draw)]
-    A_plus2, A_plus5 = (A + 2) % 10, (A + 5) % 10
-    B_plus2, B_plus5 = (B + 2) % 10, (B + 5) % 10
-    C_plus2, C_plus5 = (C + 2) % 10, (C + 5) % 10
-    D_plus2, D_plus5 = (D + 2) % 10, (D + 5) % 10
+def calculate_date_sum(month, day):
+    """
+    Calculate the date sum and return the last digit.
+    """
+    return (month + day) % 10
 
-    # Center calculations
-    Center = round((A + B + C + D) / 4) % 10
-    Center_plus1 = (Center + 1) % 10
-    Center_plus2 = (Center_plus1 + 1) % 10
+def find_pattern(grid, pattern="8396"):
+    """
+    Search for a specific pattern in the grid.
+    """
+    pattern_found = []
+    rows = ["".join(map(str, row)) for row in grid]
+    cols = ["".join(map(str, col)) for col in zip(*grid)]
+    
+    for line in itertools.chain(rows, cols):
+        if pattern in line:
+            pattern_found.append(line)
+    
+    return pattern_found
 
-    # Date calculations
-    month, day = [int(d) for d in date.split('-')]
-    date_sum = (month + day) % 10
-    mirror_map = {0: 5, 1: 6, 2: 7, 3: 8, 4: 9, 5: 0, 6: 1, 7: 2, 8: 3, 9: 4}
-    mirror = mirror_map[date_sum]
-    circled_numbers = [date_sum, mirror]
-
-    # Prediction Grid
-    prediction_grid = [
-        [A_plus2, mirror, B_plus2],
-        [date_sum, Center_plus1, Center_plus2],
-        [C_plus2, date_sum, D_plus2]
-    ]
-
-    # Predicted Hits with Weights
-    predicted_hits = [
-        (num, 2) if num in circled_numbers else (num, 1)
-        for row in prediction_grid for num in row
-    ]
-
+def analyze_draw(previous_draw, month, day):
+    """
+    Analyze the draw and identify patterns.
+    """
+    # Convert previous draw to integers
+    previous_draw = list(map(int, str(previous_draw)))
+    
+    # Step 1: Generate the grid
+    grid = generate_grid(previous_draw)
+    
+    # Step 2: Calculate date sum
+    date_sum = calculate_date_sum(month, day)
+    
+    # Step 3: Find patterns
+    patterns = find_pattern(grid)
+    
     return {
-        "grid": prediction_grid,
-        "predicted_hits": [num for num, weight in predicted_hits if weight > 1]
+        "grid": grid,
+        "date_sum": date_sum,
+        "patterns": patterns,
     }
 
-@app.route("/predict", methods=["POST"])
-def predict():
-    try:
-        data = request.json  # Get JSON data from the POST request
-        initial_draw = data.get("initial_draw")
-        date = data.get("date")
-        if not initial_draw or not date:
-            return jsonify({"error": "Missing 'initial_draw' or 'date'"}), 400
-        result = predict_hit_enhanced(initial_draw, date)
-        return jsonify(result), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+# Example usage
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Input parameters
+    previous_draw = 1474
+    month = 12  # December
+    day = 7
+    
+    # Analyze draw
+    analysis = analyze_draw(previous_draw, month, day)
+    
+    # Display results
+    print("Generated Grid:")
+    for row in analysis["grid"]:
+        print(row)
+    
+    print(f"\nDate Sum: {analysis['date_sum']}")
+    print(f"Identified Patterns: {analysis['patterns']}")
