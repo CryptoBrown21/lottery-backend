@@ -1,10 +1,12 @@
 from flask import Flask, request, jsonify
 import itertools
+from collections import Counter
+import logging
 
 app = Flask(__name__)
 
-import itertools
-from collections import Counter
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 def validate_inputs(previous_draw, month, day):
     """
@@ -34,7 +36,7 @@ def generate_grid(previous_draw):
     
     # Apply transformations
     for i in range(4):
-        for j, (name, transform) in enumerate(transformations.items(), start=1):
+        for j, transform in enumerate(transformations.values(), start=1):
             grid[i][j] = transform(grid[i][0])
     
     return grid
@@ -95,24 +97,37 @@ def analyze_draw(previous_draw, month, day):
         "weighted_patterns": weighted_patterns,
     }
 
-# Example usage
-if __name__ == "__main__":
-    # Input parameters
-    previous_draw = 1474
-    month = 12  # December
-    day = 7
-    
-    # Analyze draw
+@app.route("/analyze", methods=["POST"])
+def analyze():
+    """
+    Analyze lottery draws based on user input.
+    """
     try:
-        analysis = analyze_draw(previous_draw, month, day)
-        
-        # Display results
-        print("Generated Grid:")
-        for row in analysis["grid"]:
-            print(row)
-        
-        print(f"\nDate Sum: {analysis['date_sum']}")
-        print(f"Identified Patterns: {analysis['patterns']}")
-        print(f"Weighted Patterns: {analysis['weighted_patterns']}")
-    except ValueError as e:
-        print(f"Input Error: {e}")
+        data = request.json
+        if not data:
+            raise ValueError("Missing request body.")
+
+        previous_draw = data.get("previous_draw")
+        month = data.get("month")
+        day = data.get("day")
+
+        if previous_draw is None or month is None or day is None:
+            raise ValueError("Missing 'previous_draw', 'month', or 'day'.")
+
+        # Logging for debug purposes
+        logging.info(f"Received data: {data}")
+
+        # Perform analysis
+        result = analyze_draw(int(previous_draw), int(month), int(day))
+        return jsonify(result), 200
+
+    except ValueError as ve:
+        logging.error(f"Validation error: {ve}")
+        return jsonify({"error": str(ve)}), 400
+    except Exception as e:
+        logging.error(f"Internal server error: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
+if __name__ == "__main__":
+    # Run the Flask app locally
+    app.run(debug=True)
